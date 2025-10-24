@@ -3,6 +3,7 @@
 /node_modules
 /build
 
+ca.pem
 # Logs
 logs
 *.log

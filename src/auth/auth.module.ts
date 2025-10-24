@@ -7,7 +7,6 @@ import { JwtStrategy } from './strategy/jwt.strategy';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { JwtRefreshStrategy } from './strategy/jwt.refresh.strategy';
 import { CookieConfigService } from '../config/cookies/cookie-config.service';
 
 @Module({
@@ -22,13 +21,7 @@ import { CookieConfigService } from '../config/cookies/cookie-config.service';
     UserModule,
     PassportModule,
   ],
-  providers: [
-    AuthService,
-    LocalStrategy,
-    JwtStrategy,
-    JwtRefreshStrategy,
-    CookieConfigService,
-  ],
+  providers: [AuthService, LocalStrategy, JwtStrategy, CookieConfigService],
   exports: [AuthService, CookieConfigService],
   controllers: [AuthController],
 })

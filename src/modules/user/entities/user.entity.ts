@@ -1,29 +1,19 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { UserStatus } from '../enums/user-status';
-import { Address } from './address.entity';
 import {
   BeforeInsert,
   BeforeUpdate,
   Column,
   Entity,
   Index,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { Account } from 'src/modules/accounts/entities/account.entity';
-import { Transaction } from 'src/modules/transactions/entities/transaction.entity';
 
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @OneToMany(() => Account, (account) => account.user)
-  accounts: Account[];
-
-  @OneToMany(() => Transaction, (transaction) => transaction.user)
-  transactions: Transaction[];
 
   @Column('varchar')
   userName: string;
@@ -47,9 +37,6 @@ export class User {
 
   @Column('varchar')
   phoneNumber: string;
-
-  @Column(() => Address)
-  address: Address;
 
   @Column({ type: 'varchar', select: false })
   password: string;
