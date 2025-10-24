@@ -24,7 +24,12 @@ export class MessagesGateway
   private onlineUsers = new Map<string, string>();
 
   constructor(private readonly messagesService: MessagesService) {}
-
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('get_online_users')
+  handleGetOnlineUsers(@ConnectedSocket() socket: AuthenticatedSocket) {
+    const onlineUserIds = Array.from(this.onlineUsers.keys());
+    socket.emit('online_users', onlineUserIds);
+  }
   @UseGuards(WsJwtGuard)
   async handleConnection(@ConnectedSocket() socket: AuthenticatedSocket) {
     const user = socket.user;

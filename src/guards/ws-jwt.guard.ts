@@ -1,10 +1,10 @@
-// src/auth/guards/ws-jwt.guard.ts
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/modules/user/user.service';
-import { Socket } from 'socket.io';
 import { TokenPayload } from 'src/types/token.payload';
+import { parse } from 'cookie';
+import { AuthenticatedSocket } from 'src/types/socket-with-user'; // 👈 import type
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
@@ -15,23 +15,16 @@ export class WsJwtGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const client: Socket = context.switchToWs().getClient();
-    const cookies = client.handshake.headers.cookie;
+    const client = context.switchToWs().getClient<AuthenticatedSocket>();
+    const cookieHeader = client.handshake.headers.cookie;
 
-    if (!cookies) {
+    if (!cookieHeader) {
       console.warn('❌ No cookies found in handshake');
       return false;
     }
 
-    // Parse cookies manually
-    const parsedCookies = Object.fromEntries(
-      cookies.split(';').map((cookie) => {
-        const [key, ...v] = cookie.trim().split('=');
-        return [key, decodeURIComponent(v.join('='))];
-      }),
-    );
-
-    const token = parsedCookies['accessToken']; // exact name you use
+    const cookies = parse(cookieHeader);
+    const token = cookies['accessToken'];
 
     if (!token) {
       console.warn('❌ No accessToken found in cookies');
@@ -49,10 +42,10 @@ export class WsJwtGuard implements CanActivate {
         return false;
       }
 
-      // Attach user to socket for later retrieval
-      (client as any).user = user;
+      client.user = user; // ✅ now fully typed, no ESLint warning
       return true;
-    } catch {
+    } catch (error) {
+      console.warn('❌ Invalid or expired token:', error);
       return false;
     }
   }
