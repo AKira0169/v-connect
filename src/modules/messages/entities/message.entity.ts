@@ -1,5 +1,3 @@
-import { Chat } from 'src/modules/chat/entities/chat.entity';
-import { User } from 'src/modules/user/entities/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -8,6 +6,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { User } from '../../user/entities/user.entity';
+import { Chat } from 'src/modules/chat/entities/chat.entity';
 
 export enum MessageStatus {
   SENT = 'sent',
@@ -20,27 +20,24 @@ export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Chat, (chat) => chat.messages)
+  @ManyToOne(() => Chat, (chat) => chat.messages, { onDelete: 'CASCADE' })
   chat: Chat;
 
-  @ManyToOne(() => User, (user) => user.id, { eager: true })
+  @ManyToOne(() => User, { eager: true })
   sender: User;
-
-  @ManyToOne(() => User, (user) => user.id, { eager: true })
-  receiver: User;
 
   @Column('text')
   content: string;
 
-  @Column({
-    type: 'enum',
-    enum: MessageStatus,
-    default: MessageStatus.SENT,
-  })
+  @Column({ type: 'enum', enum: MessageStatus, default: MessageStatus.SENT })
   status: MessageStatus;
+
+  @Column({ nullable: true })
+  replyToMessageId?: string; // optional threading
 
   @CreateDateColumn()
   createdAt: Date;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

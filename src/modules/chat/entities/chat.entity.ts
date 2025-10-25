@@ -7,20 +7,25 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
-  Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { Message } from '../../messages/entities/message.entity';
+import { Message } from 'src/modules/messages/entities/message.entity';
+
+export enum ChatType {
+  DIRECT = 'direct',
+  GROUP = 'group',
+}
 
 @Entity()
 export class Chat {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // IMPORTANT: This ensures one unique chat per pair of users
-  @Index({ unique: true })
-  @Column({ unique: true })
-  key: string;
+  @Column({ type: 'enum', enum: ChatType, default: ChatType.DIRECT })
+  type: ChatType;
+
+  @Column({ nullable: true })
+  title?: string; // optional for group chats
 
   @ManyToMany(() => User)
   @JoinTable({
