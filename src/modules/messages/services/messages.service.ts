@@ -20,11 +20,12 @@ export class MessagesService {
     });
   }
 
-  async create(sender: User, receiver: User, content: string) {
+  async create(sender: User, receiver: User, content: string, chatId: string) {
     const message = this.messagesRepo.create({
       sender,
       receiver,
       content,
+      chat: { id: chatId }, // assign to chat
     });
     return this.messagesRepo.save(message);
   }

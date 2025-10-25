@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Chat } from './entities/chat.entity';
-import { Message, MessageStatus } from '../messages/entities/message.entity';
 import { MessagesService } from '../messages/services/messages.service';
+import { Message, MessageStatus } from '../messages/entities/message.entity';
+import crypto from 'crypto';
+import { User } from '../user/entities/user.entity';
 
 export interface ChatPreviewDto {
   id: string;
-  participants: any[];
+  participants: User[];
   lastMessage?: Message | null;
   unreadCount: number;
 }
@@ -20,11 +22,34 @@ export class ChatService {
     private readonly messagesService: MessagesService,
   ) {}
 
+  /** Find existing 1-on-1 chat or create it */
+  async findOrCreateChat(userId1: string, userId2: string): Promise<Chat> {
+    const [idA, idB] = [userId1, userId2].sort();
+    const key = crypto
+      .createHash('sha256')
+      .update(`${idA}:${idB}`)
+      .digest('hex');
+
+    let chat = await this.chatRepo.findOne({
+      where: { key },
+      relations: ['participants', 'messages'],
+    });
+
+    if (!chat) {
+      chat = this.chatRepo.create({
+        key,
+        participants: [{ id: idA }, { id: idB }],
+      });
+      await this.chatRepo.save(chat);
+    }
+
+    return chat;
+  }
+
   async fetchConversations(userId: string): Promise<ChatPreviewDto[]> {
-    // Fetch all chats the user is in
     const chats = await this.chatRepo
       .createQueryBuilder('chat')
-      .leftJoinAndSelect('chat.participants', 'participant')
+      .leftJoinAndSelect('chat.participants', 'participant') // full user object
       .leftJoinAndSelect(
         'chat.messages',
         'lastMessage',
@@ -34,20 +59,18 @@ export class ChatService {
       .orderBy('chat.updatedAt', 'DESC')
       .getMany();
 
-    // Map chat info
     return chats.map((chat) => {
       const lastMessage = chat.messages?.[0] || null;
-
-      // Compute unread count
-      const unreadCount = lastMessage
-        ? lastMessage.receiver?.id === userId &&
-          lastMessage.status !== MessageStatus.READ
+      const unreadCount =
+        lastMessage &&
+        lastMessage.receiver?.id === userId &&
+        lastMessage.status !== MessageStatus.READ
           ? 1
-          : 0
-        : 0;
+          : 0;
 
       return {
         id: chat.id,
+        // exclude the current user but keep full participant objects
         participants: chat.participants.filter((p) => p.id !== userId),
         lastMessage,
         unreadCount,
@@ -55,14 +78,18 @@ export class ChatService {
     });
   }
 
-  async fetchMessagesByChat(chatId: string, userId?: string) {
+  /** Fetch messages for a chat */
+  async fetchMessagesByChat(
+    chatId: string,
+    userId?: string,
+  ): Promise<Message[]> {
     const messages = await this.messagesService.fetchMessagesByChat(chatId);
 
     // Mark messages as read for this user
     if (userId) {
-      const firstMsg = messages.at(-1);
-      if (firstMsg && firstMsg.sender) {
-        await this.messagesService.markAsRead(firstMsg.sender.id, userId);
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg && lastMsg.sender) {
+        await this.messagesService.markAsRead(lastMsg.sender.id, userId);
       }
     }
 

@@ -1,28 +1,53 @@
 import { Injectable } from '@nestjs/common';
 
+type OnlineUser = {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  socketIds: Set<string>; // can have multiple connections
+};
+
 @Injectable()
 export class PresenceService {
-  private onlineUsers = new Map<string, string>();
+  private onlineUsers = new Map<string, OnlineUser>();
 
-  addUser(userId: string, socketId: string) {
-    this.onlineUsers.set(userId, socketId);
+  addUser(
+    user: { id: string; email: string; firstName: string; lastName: string },
+    socketId: string,
+  ) {
+    const existing = this.onlineUsers.get(user.id);
+    if (existing) {
+      existing.socketIds.add(socketId);
+    } else {
+      this.onlineUsers.set(user.id, {
+        _id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        socketIds: new Set([socketId]),
+      });
+    }
   }
 
   removeUserBySocket(socketId: string): string | undefined {
-    const entry = [...this.onlineUsers.entries()].find(
-      ([, sid]) => sid === socketId,
+    for (const [userId, user] of this.onlineUsers.entries()) {
+      if (user.socketIds.has(socketId)) {
+        user.socketIds.delete(socketId);
+        if (user.socketIds.size === 0) this.onlineUsers.delete(userId);
+        return userId;
+      }
+    }
+    return undefined;
+  }
+
+  getOnlineUsers(): Omit<OnlineUser, 'socketIds'>[] {
+    return Array.from(this.onlineUsers.values()).map(
+      ({ socketIds, ...rest }) => rest,
     );
-    if (!entry) return;
-    const [userId] = entry;
-    this.onlineUsers.delete(userId);
-    return userId;
   }
 
-  getOnlineUserIds(): string[] {
-    return Array.from(this.onlineUsers.keys());
-  }
-
-  getSocketId(userId: string): string | undefined {
-    return this.onlineUsers.get(userId);
+  getSocketIds(userId: string): string[] {
+    return Array.from(this.onlineUsers.get(userId)?.socketIds || []);
   }
 }

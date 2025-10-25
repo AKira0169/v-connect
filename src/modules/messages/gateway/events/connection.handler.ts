@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-
 import type { AuthenticatedSocket } from 'src/types/socket-with-user';
 import { Server } from 'socket.io';
 import { MessagesService } from '../../services/messages.service';
@@ -16,18 +15,23 @@ export class ConnectionHandler {
     const user = socket.user;
     if (!user) return socket.disconnect();
 
-    this.presenceService.addUser(user.id, socket.id);
+    // Add user to presence
+    this.presenceService.addUser(user, socket.id);
     console.log(`🟢 User ${user.id} connected`);
 
+    // Mark messages as delivered
     await this.messagesService.markAsDelivered(user.id);
-    server.emit('user_online', { userId: user.id });
+
+    // Broadcast updated online users to all clients
+    server.emit('online_users', this.presenceService.getOnlineUsers());
   }
 
   handleDisconnect(server: Server, socket: AuthenticatedSocket) {
     const userId = this.presenceService.removeUserBySocket(socket.id);
     if (userId) {
-      server.emit('user_offline', { userId });
       console.log(`🔴 User ${userId} disconnected`);
+      // Broadcast updated online users
+      server.emit('online_users', this.presenceService.getOnlineUsers());
     }
   }
 }

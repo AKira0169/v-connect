@@ -35,25 +35,15 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRES_IN'),
-    });
 
     res.cookie(
       'accessToken',
       accessToken,
       this.cookieConfigService.cookieOptions.accessToken,
     );
-    res.cookie(
-      'refreshToken',
-      refreshToken,
-      this.cookieConfigService.cookieOptions.refreshToken,
-    );
 
     return {
       accessToken: accessToken,
-      refreshToken: refreshToken,
     };
   }
 

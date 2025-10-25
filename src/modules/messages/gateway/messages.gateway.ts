@@ -8,13 +8,17 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { WsJwtGuard } from 'src/guards/ws-jwt.guard';
 import type { AuthenticatedSocket } from 'src/types/socket-with-user';
 import { ConnectionHandler } from './events/connection.handler';
 import { MessageHandler } from './events/message.handler';
-import { PresenceHandler } from './events/presence.handler';
-import { UseGuards } from '@nestjs/common';
 import { FetchMessagesHandler } from './events/fetch-messages.handler';
+import { UseGuards } from '@nestjs/common';
+import { WsJwtGuard } from 'src/guards/ws-jwt.guard';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { UserService } from 'src/modules/user/user.service';
+import { verifyWsJwt } from 'src/helpers/verify-ws-jwt';
+import { FetchConversationsHandler } from './events/fetch_conversations_handler';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class MessagesGateway
@@ -26,23 +30,26 @@ export class MessagesGateway
   constructor(
     private readonly connectionHandler: ConnectionHandler,
     private readonly messageHandler: MessageHandler,
-    private readonly presenceHandler: PresenceHandler,
     private readonly fetchMessagesHandler: FetchMessagesHandler,
+    private readonly fetchConversationsHandler: FetchConversationsHandler,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly userService: UserService,
   ) {}
 
-  @UseGuards(WsJwtGuard)
-  handleConnection(socket: AuthenticatedSocket) {
-    return this.connectionHandler.handleConnection(this.server, socket);
+  async handleConnection(socket: AuthenticatedSocket) {
+    const allowed = await verifyWsJwt(
+      socket,
+      this.jwtService,
+      this.configService,
+      this.userService,
+    );
+    if (!allowed) return socket.disconnect();
+    await this.connectionHandler.handleConnection(this.server, socket);
   }
 
   handleDisconnect(socket: AuthenticatedSocket) {
-    return this.connectionHandler.handleDisconnect(this.server, socket);
-  }
-
-  @UseGuards(WsJwtGuard)
-  @SubscribeMessage('get_online_users')
-  handleGetOnlineUsers(@ConnectedSocket() socket: AuthenticatedSocket) {
-    return this.presenceHandler.handleGetOnlineUsers(socket);
+    this.connectionHandler.handleDisconnect(this.server, socket);
   }
 
   @UseGuards(WsJwtGuard)
@@ -53,6 +60,7 @@ export class MessagesGateway
   ) {
     return this.messageHandler.handleSendMessage(this.server, socket, data);
   }
+
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('fetch_messages')
   handleFetchMessages(
@@ -60,5 +68,11 @@ export class MessagesGateway
     @MessageBody() data: { withUserId: string; limit?: number },
   ) {
     return this.fetchMessagesHandler.handleFetchMessages(socket, data);
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('fetch_conversations')
+  handleFetchConversations(@ConnectedSocket() socket: AuthenticatedSocket) {
+    return this.fetchConversationsHandler.handleFetchConversations(socket);
   }
 }

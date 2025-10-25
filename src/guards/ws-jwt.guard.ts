@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/modules/user/user.service';
 import { TokenPayload } from 'src/types/token.payload';
 import { parse } from 'cookie';
-import { AuthenticatedSocket } from 'src/types/socket-with-user'; // 👈 import type
+import { AuthenticatedSocket } from 'src/types/socket-with-user';
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
@@ -16,6 +16,7 @@ export class WsJwtGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<AuthenticatedSocket>();
+    console.log('cookieHeader');
     const cookieHeader = client.handshake.headers.cookie;
 
     if (!cookieHeader) {
@@ -42,7 +43,7 @@ export class WsJwtGuard implements CanActivate {
         return false;
       }
 
-      client.user = user; // ✅ now fully typed, no ESLint warning
+      client.user = user;
       return true;
     } catch (error) {
       console.warn('❌ Invalid or expired token:', error);

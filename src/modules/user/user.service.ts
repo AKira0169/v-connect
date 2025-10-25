@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { SignUpDto } from 'src/auth/dto/signup.dto';
 import { UpdateUserDto } from './dto/updateUser';
@@ -40,6 +40,15 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  async findByIds(userIds: string[]): Promise<User[]> {
+    if (userIds.length === 0) return [];
+
+    return this.userRepository.find({
+      where: { id: In(userIds) },
+      select: ['id', 'firstName', 'userName', 'email'],
+    });
   }
 
   async findOne(userParam: User): Promise<User> {

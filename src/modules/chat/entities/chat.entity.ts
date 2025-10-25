@@ -16,6 +16,9 @@ export class Chat {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ unique: true })
+  key: string; // deterministic key for 1-on-1 chats
+
   @ManyToMany(() => User)
   @JoinTable()
   participants: User[];
