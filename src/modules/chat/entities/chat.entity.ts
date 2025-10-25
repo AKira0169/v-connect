@@ -1,33 +1,37 @@
-import { Message } from 'src/modules/messages/entities/message.entity';
-import { User } from 'src/modules/user/entities/user.entity';
 import {
-  Column,
-  CreateDateColumn,
   Entity,
-  JoinTable,
-  ManyToMany,
-  OneToMany,
   PrimaryGeneratedColumn,
+  Column,
+  ManyToMany,
+  JoinTable,
+  OneToMany,
+  CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
+import { User } from '../../user/entities/user.entity';
+import { Message } from '../../messages/entities/message.entity';
 
 @Entity()
 export class Chat {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // IMPORTANT: This ensures one unique chat per pair of users
+  @Index({ unique: true })
   @Column({ unique: true })
-  key: string; // deterministic key for 1-on-1 chats
+  key: string;
 
   @ManyToMany(() => User)
-  @JoinTable()
+  @JoinTable({
+    name: 'chat_participants',
+    joinColumn: { name: 'chat_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
   participants: User[];
 
   @OneToMany(() => Message, (message) => message.chat)
   messages: Message[];
-
-  @Column({ nullable: true })
-  name?: string;
 
   @CreateDateColumn()
   createdAt: Date;
