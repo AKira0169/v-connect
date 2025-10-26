@@ -5,7 +5,7 @@ import { UserParam } from 'src/Decorator/user-param.decorator';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 
-@Controller('chat')
+@Controller('chats')
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
