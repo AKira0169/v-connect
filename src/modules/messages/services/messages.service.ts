@@ -12,6 +12,15 @@ export class MessagesService {
     private readonly messagesRepo: Repository<Message>,
   ) {}
 
+  async create(data: { chat: Chat; sender: User; content: string }) {
+    const message = this.messagesRepo.create({
+      chat: data.chat,
+      sender: data.sender,
+      content: data.content,
+    });
+    return await this.messagesRepo.save(message);
+  }
+
   // Send message
   async sendMessage(
     chat: Chat,
