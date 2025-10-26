@@ -32,9 +32,6 @@ export class Message {
   @Column({ type: 'enum', enum: MessageStatus, default: MessageStatus.SENT })
   status: MessageStatus;
 
-  @Column({ nullable: true })
-  replyToMessageId?: string; // optional threading
-
   @CreateDateColumn()
   createdAt: Date;
 
