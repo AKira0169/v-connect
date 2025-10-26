@@ -25,21 +25,20 @@ export class ChatService {
    * Get or create a one-to-one chat between two users
    */
   async getOrCreateDirectChat(userA: User, userB: User): Promise<Chat> {
-    // 1️⃣ Check if chat already exists between both users
-    const existingChat = await this.chatRepo
-      .createQueryBuilder('chat')
-      .leftJoinAndSelect('chat.participants', 'participant')
-      .where('chat.type = :type', { type: ChatType.DIRECT })
-      .andWhere('participant.id IN (:...userIds)', {
-        userIds: [userA.id, userB.id],
-      })
-      .groupBy('chat.id')
-      .having('COUNT(participant.id) = 2')
-      .getOne();
+    const chats = await this.chatRepo.find({
+      where: { type: ChatType.DIRECT },
+      relations: ['participants'],
+    });
+
+    const existingChat = chats.find(
+      (chat) =>
+        chat.participants.length === 2 &&
+        chat.participants.some((u) => u.id === userA.id) &&
+        chat.participants.some((u) => u.id === userB.id),
+    );
 
     if (existingChat) return existingChat;
 
-    // 2️⃣ Create a new chat
     const newChat = this.chatRepo.create({
       type: ChatType.DIRECT,
       participants: [userA, userB],
@@ -52,26 +51,32 @@ export class ChatService {
    * Get all chats for a user with latest message and unread count
    */
   async findUserChats(user: User): Promise<ChatPreviewDto[]> {
-    // 1️⃣ Get all chats where the user participates
-    const chats = await this.chatRepo.find({
-      where: { participants: { id: user.id } },
-      relations: ['participants'],
-      order: { updatedAt: 'DESC' },
-    });
+    const chats = await this.chatRepo
+      .createQueryBuilder('chat')
+      .innerJoin('chat.participants', 'participant')
+      .leftJoinAndSelect('chat.participants', 'participants')
+      .where('participant.id = :userId', { userId: user.id })
+      .orderBy('chat.updatedAt', 'DESC')
+      .getMany();
 
-    // 2️⃣ Attach last message + unread count
     const chatPreviews: ChatPreviewDto[] = [];
 
     for (const chat of chats) {
       const lastMessage = await this.messagesService.findLastMessage(chat.id);
+
       const unreadCount = await this.messagesService.countUnreadMessages(
         chat.id,
         user.id,
       );
 
+      // exclude yourself
+      const otherParticipants = chat.participants.filter(
+        (p) => p.id !== user.id,
+      );
+
       chatPreviews.push({
         id: chat.id,
-        participants: chat.participants,
+        participants: otherParticipants,
         lastMessage,
         unreadCount,
       });

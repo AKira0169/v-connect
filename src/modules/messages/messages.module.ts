@@ -9,6 +9,7 @@ import { MessagesGateway } from './gateway/messages.gateway';
 import { UserModule } from '../user/user.module';
 
 import { ChatModule } from '../chat/chat.module';
+import { MessagesController } from './messages.controller';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ChatModule } from '../chat/chat.module';
     UserModule,
     forwardRef(() => ChatModule),
   ],
+  controllers: [MessagesController],
   providers: [MessagesGateway, MessagesService],
   exports: [MessagesGateway, MessagesService],
 })

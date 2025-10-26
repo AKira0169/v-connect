@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { Message, MessageStatus } from '../entities/message.entity';
 import { Chat } from 'src/modules/chat/entities/chat.entity';
 import { User } from 'src/modules/user/entities/user.entity';
@@ -52,7 +52,23 @@ export class MessagesService {
   }
 
   // Placeholder for unread messages (future)
-  countUnreadMessages(chatId: string, userId: string) {
-    return 0;
+  async countUnreadMessages(chatId: string, userId: string): Promise<number> {
+    return this.messagesRepo.count({
+      where: {
+        chat: { id: chatId },
+        sender: { id: Not(userId) },
+        status: Not(MessageStatus.READ),
+      },
+    });
+  }
+  async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
+    await this.messagesRepo.update(
+      {
+        chat: { id: chatId },
+        sender: { id: Not(userId) },
+        status: Not(MessageStatus.READ),
+      },
+      { status: MessageStatus.READ },
+    );
   }
 }

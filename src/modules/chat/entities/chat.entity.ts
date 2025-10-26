@@ -13,7 +13,6 @@ import { Message } from 'src/modules/messages/entities/message.entity';
 
 export enum ChatType {
   DIRECT = 'direct',
-  GROUP = 'group',
 }
 
 @Entity()
