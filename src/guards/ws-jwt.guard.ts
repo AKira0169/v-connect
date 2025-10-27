@@ -16,16 +16,21 @@ export class WsJwtGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<AuthenticatedSocket>();
-    console.log('cookieHeader');
-    const cookieHeader = client.handshake.headers.cookie;
-
-    if (!cookieHeader) {
-      console.warn('❌ No cookies found in handshake');
-      return false;
+    // 1️⃣ Try Authorization header first
+    let token: string | undefined;
+    const authHeader = client.handshake.headers['authorization'];
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
     }
 
-    const cookies = parse(cookieHeader);
-    const token = cookies['accessToken'];
+    // 2️⃣ Fallback: try cookies
+    if (!token) {
+      const cookieHeader = client.handshake.headers.cookie;
+      if (cookieHeader) {
+        const cookies = parse(cookieHeader);
+        token = cookies['accessToken'];
+      }
+    }
 
     if (!token) {
       console.warn('❌ No accessToken found in cookies');

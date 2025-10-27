@@ -87,36 +87,48 @@ export class MessagesGateway
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('send_message')
   async handleSendMessage(
-    @MessageBody() data: { receiverId: string; content: string },
+    @MessageBody() data: any,
     @ConnectedSocket() socket: AuthenticatedSocket,
   ) {
-    const sender = socket.user;
-    const { receiverId, content } = data;
+    let JsonData: { receiverId: string; content: string };
 
-    // 1️⃣ Ensure chat exists or create a new one
+    if (typeof data === 'string') {
+      try {
+        JsonData = JSON.parse(data) as { receiverId: string; content: string };
+      } catch (err) {
+        this.logger.error('❌ Invalid JSON format in send_message:', err);
+        return;
+      }
+    } else {
+      JsonData = data as { receiverId: string; content: string };
+    }
+
+    const { receiverId, content } = JsonData;
+
+    const sender = socket.user;
     const receiver = await this.userService.findById(receiverId);
     const chat = await this.chatService.getOrCreateDirectChat(sender, receiver);
 
-    // 2️⃣ Save message in DB
     const message = await this.messagesService.create({
       chat,
       sender,
       content,
     });
 
-    // 3️⃣ Emit to both users in this chat room
-    this.server.to(chat.id).emit('new_message', message);
+    // Join chat room
+    socket.join(chat.id);
 
-    // 4️⃣ Send directly to receiver sockets if online
-    const receiverSockets = this.onlineUsers.get(receiverId);
-    if (receiverSockets) {
-      receiverSockets.forEach((sid) => {
-        this.server.to(sid).emit('new_message', message);
-      });
-    }
+    // ✅ Broadcast message to all sender + receiver sockets
+    const receiverSockets = this.onlineUsers.get(receiverId) || [];
+    const senderSockets = this.onlineUsers.get(sender.id) || [];
 
-    // 5️⃣ Confirm delivery to sender
-    socket.emit('message_sent', message);
+    [...receiverSockets, ...senderSockets].forEach((socketId) => {
+      this.server.to(socketId).emit('new_message', message);
+    });
+
+    this.logger.log(
+      `📨 Message sent in chat ${chat.id} from ${sender.id} → ${receiverId}`,
+    );
   }
 
   // ✅ Mark all messages in a chat as read

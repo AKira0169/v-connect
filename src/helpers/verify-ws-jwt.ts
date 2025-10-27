@@ -12,11 +12,24 @@ export async function verifyWsJwt(
   configService: ConfigService,
   userService: UserService,
 ): Promise<boolean> {
-  const cookieHeader = socket.handshake.headers.cookie;
-  if (!cookieHeader) return false;
+  let token: string | undefined;
 
-  const cookies = parse(cookieHeader);
-  const token = cookies['accessToken'];
+  // 1️⃣ Try Authorization header first
+  const authHeader = socket.handshake.headers['authorization'];
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  }
+
+  // 2️⃣ Fallback: try cookies
+  if (!token) {
+    const cookieHeader = socket.handshake.headers.cookie;
+    if (cookieHeader) {
+      const cookies = parse(cookieHeader);
+      token = cookies['accessToken'];
+    }
+  }
+
+  // 3️⃣ Reject if no token found
   if (!token) return false;
 
   try {
