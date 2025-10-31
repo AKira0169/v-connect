@@ -8,7 +8,6 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { UseGuards, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/modules/user/user.service';
@@ -17,6 +16,7 @@ import { MessagesService } from '../services/messages.service';
 import { WsJwtGuard } from 'src/guards/ws-jwt.guard';
 import { verifyWsJwt } from 'src/helpers/verify-ws-jwt';
 import type { AuthenticatedSocket } from 'src/types/socket-with-user';
+import { Logger, UseGuards } from '@nestjs/common';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class MessagesGateway
@@ -26,8 +26,6 @@ export class MessagesGateway
   server: Server;
 
   private readonly logger = new Logger(MessagesGateway.name);
-
-  // 🟢 Map of userId -> socketIds[]
   private onlineUsers: Map<string, string[]> = new Map();
 
   constructor(
@@ -57,7 +55,6 @@ export class MessagesGateway
     sockets.push(socket.id);
     this.onlineUsers.set(userId, sockets);
 
-    // Notify clients only if this is the first socket for this user
     if (sockets.length === 1) {
       this.server.emit('user_online', { userId });
     }
@@ -96,7 +93,7 @@ export class MessagesGateway
       try {
         JsonData = JSON.parse(data) as { receiverId: string; content: string };
       } catch (err) {
-        this.logger.error('❌ Invalid JSON format in send_message:', err);
+        this.logger.error('❌ Invalid JSON in send_message:', err);
         return;
       }
     } else {
@@ -104,7 +101,6 @@ export class MessagesGateway
     }
 
     const { receiverId, content } = JsonData;
-
     const sender = socket.user;
     const receiver = await this.userService.findById(receiverId);
     const chat = await this.chatService.getOrCreateDirectChat(sender, receiver);
@@ -115,10 +111,9 @@ export class MessagesGateway
       content,
     });
 
-    // Join chat room
-    socket.join(chat.id);
+    await socket.join(chat.id);
 
-    // ✅ Broadcast message to all sender + receiver sockets
+    // Broadcast to sender + receiver sockets
     const receiverSockets = this.onlineUsers.get(receiverId) || [];
     const senderSockets = this.onlineUsers.get(sender.id) || [];
 
@@ -143,10 +138,16 @@ export class MessagesGateway
 
     await this.messagesService.markMessagesAsRead(chatId, user.id);
 
+    // Notify everyone in that chat room
     this.server.to(chatId).emit('messages_read', {
       chatId,
       userId: user.id,
+      timestamp: new Date().toISOString(),
     });
+
+    this.logger.log(
+      `📘 Messages marked as read in chat ${chatId} by ${user.id}`,
+    );
   }
 
   // ✅ Join a chat room
