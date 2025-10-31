@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Chat } from './entities/chat.entity';
 import { MessagesModule } from '../messages/messages.module';
 import { UserModule } from '../user/user.module';
+import { AiService } from './ai.service';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { UserModule } from '../user/user.module';
     UserModule,
   ],
   controllers: [ChatController],
-  providers: [ChatService],
+  providers: [ChatService, AiService],
   exports: [ChatService],
 })
 export class ChatModule {}

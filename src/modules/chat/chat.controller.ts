@@ -28,4 +28,10 @@ export class ChatController {
   async getUserChats(@UserParam() user: User) {
     return this.chatService.findUserChats(user);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/insights')
+  async getChatInsights(@Param('id') chatId: string, @UserParam() user: User) {
+    return await this.chatService.generateInsights(chatId, user);
+  }
 }

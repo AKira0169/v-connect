@@ -5,11 +5,17 @@ import { Chat, ChatType } from './entities/chat.entity';
 import { MessagesService } from '../messages/services/messages.service';
 import { Message } from '../messages/entities/message.entity';
 import { User } from '../user/entities/user.entity';
+import { AiService } from './ai.service';
 
 export interface ChatPreviewDto {
   id: string;
   participants: User[];
   lastMessage?: Message | null;
+  aiInsights?: {
+    summary: string;
+    sentiment: 'positive' | 'negative' | 'neutral';
+    keywords: string[];
+  };
   unreadCount: number;
 }
 
@@ -19,11 +25,9 @@ export class ChatService {
     @InjectRepository(Chat)
     private readonly chatRepo: Repository<Chat>,
     private readonly messagesService: MessagesService,
+    private readonly aiService: AiService,
   ) {}
 
-  /**
-   * Get or create a one-to-one chat between two users
-   */
   async getOrCreateDirectChat(userA: User, userB: User): Promise<Chat> {
     const chats = await this.chatRepo.find({
       where: { type: ChatType.DIRECT },
@@ -47,9 +51,6 @@ export class ChatService {
     return await this.chatRepo.save(newChat);
   }
 
-  /**
-   * Get all chats for a user with latest message and unread count
-   */
   async findUserChats(user: User): Promise<ChatPreviewDto[]> {
     const chats = await this.chatRepo
       .createQueryBuilder('chat')
@@ -63,21 +64,34 @@ export class ChatService {
 
     for (const chat of chats) {
       const lastMessage = await this.messagesService.findLastMessage(chat.id);
-
       const unreadCount = await this.messagesService.countUnreadMessages(
         chat.id,
         user.id,
       );
 
-      // exclude yourself
       const otherParticipants = chat.participants.filter(
         (p) => p.id !== user.id,
       );
+
+      // ✅ Normalize AI insights
+      const normalizedInsights = chat.aiInsights
+        ? {
+            summary: chat.aiInsights.summary || 'No summary available',
+            sentiment:
+              chat.aiInsights.sentiment === 'positive' ||
+              chat.aiInsights.sentiment === 'negative' ||
+              chat.aiInsights.sentiment === 'neutral'
+                ? chat.aiInsights.sentiment
+                : 'neutral',
+            keywords: chat.aiInsights.keywords || [],
+          }
+        : undefined;
 
       chatPreviews.push({
         id: chat.id,
         participants: otherParticipants,
         lastMessage,
+        aiInsights: normalizedInsights,
         unreadCount,
       });
     }
@@ -85,9 +99,6 @@ export class ChatService {
     return chatPreviews;
   }
 
-  /**
-   * Get chat by ID (ensure the user is part of it)
-   */
   async findChatById(chatId: string, user: User): Promise<Chat> {
     const chat = await this.chatRepo.findOne({
       where: { id: chatId },
@@ -99,5 +110,35 @@ export class ChatService {
       throw new NotFoundException('You are not a participant in this chat');
 
     return chat;
+  }
+
+  async generateInsights(chatId: string, user: User) {
+    const chat = await this.chatRepo.findOne({
+      where: { id: chatId },
+      relations: ['participants', 'messages', 'messages.sender'],
+    });
+
+    if (!chat) throw new NotFoundException('Chat not found');
+    if (!chat.participants.some((u) => u.id === user.id))
+      throw new NotFoundException('You are not a participant in this chat');
+
+    // 🧠 Generate insights using all messages
+    const aiInsights = await this.aiService.generateChatInsights(chat.messages);
+
+    // 💾 Ensure all fields exist
+    chat.aiInsights = {
+      summary: aiInsights.summary || 'No summary available',
+      sentiment:
+        aiInsights.sentiment === 'positive' ||
+        aiInsights.sentiment === 'negative' ||
+        aiInsights.sentiment === 'neutral'
+          ? aiInsights.sentiment
+          : 'neutral',
+      keywords: aiInsights.keywords || [],
+    };
+
+    await this.chatRepo.save(chat);
+
+    return chat.aiInsights;
   }
 }

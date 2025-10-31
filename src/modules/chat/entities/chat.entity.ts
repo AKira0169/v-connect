@@ -14,6 +14,11 @@ import { Message } from 'src/modules/messages/entities/message.entity';
 export enum ChatType {
   DIRECT = 'direct',
 }
+export type AiInsights = {
+  summary: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  keywords: string[];
+};
 
 @Entity()
 export class Chat {
@@ -36,6 +41,9 @@ export class Chat {
 
   @OneToMany(() => Message, (message) => message.chat)
   messages: Message[];
+
+  @Column({ type: 'json', nullable: true })
+  aiInsights?: Partial<AiInsights>;
 
   @CreateDateColumn()
   createdAt: Date;
