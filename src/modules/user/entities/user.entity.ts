@@ -32,7 +32,7 @@ export class User {
   })
   email: string;
 
-  @Column('varchar')
+  @Column('varchar', { nullable: true })
   profilePic: string;
 
   @Column('varchar')

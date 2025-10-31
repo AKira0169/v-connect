@@ -12,8 +12,11 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
-  async signUp(@Body() signUpDto: SignUpDto) {
-    return this.authService.signUp(signUpDto);
+  async signUp(
+    @Body() signUpDto: SignUpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.signUp(signUpDto, res);
   }
 
   @UseGuards(LocalAuthGuard)

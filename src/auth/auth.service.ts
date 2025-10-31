@@ -26,6 +26,7 @@ export class AuthService {
     }
     throw new UnauthorizedException('Invalid email or password');
   }
+
   login(user: User, res: Response) {
     const sessionId = randomUUID();
     const payload: TokenPayload = {
@@ -33,9 +34,7 @@ export class AuthService {
       email: user.email,
       sessionId,
     };
-
     const accessToken = this.jwtService.sign(payload);
-
     res.cookie(
       'accessToken',
       accessToken,
@@ -47,8 +46,9 @@ export class AuthService {
     };
   }
 
-  async signUp(signUpDto: SignUpDto) {
+  async signUp(signUpDto: SignUpDto, res: Response) {
     const user = await this.userService.create(signUpDto);
-    return user;
+
+    return this.login(user, res);
   }
 }
