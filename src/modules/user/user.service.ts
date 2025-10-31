@@ -93,4 +93,21 @@ export class UserService {
     const updatedUser = this.userRepository.merge(user, updateDto);
     return await this.userRepository.save(updatedUser);
   }
+
+  async searchUsers(query: string, excludeUserId: string): Promise<User[]> {
+    if (!query || query.trim().length === 0) return [];
+
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id != :excludeUserId', { excludeUserId })
+      .andWhere(
+        '(LOWER(user.firstName) LIKE LOWER(:q) OR LOWER(user.lastName) LIKE LOWER(:q) OR LOWER(user.email) LIKE LOWER(:q))',
+        { q: `%${query}%` },
+      )
+      .select(['user.id', 'user.firstName', 'user.lastName', 'user.email'])
+      .limit(10)
+      .getMany();
+
+    return users;
+  }
 }
