@@ -13,7 +13,7 @@ export class CookieConfigService {
     this.cookieOptions = {
       accessToken: {
         httpOnly: true,
-        secure: true,
+        secure: false,
         sameSite: 'none',
         maxAge: parseInt(
           this.configService.getOrThrow('ACCESSTOKEN_COOKIE_EXPIRES_IN'),
@@ -22,7 +22,7 @@ export class CookieConfigService {
       },
       refreshToken: {
         httpOnly: true,
-        secure: true,
+        secure: false,
         sameSite: 'none',
         maxAge: parseInt(
           this.configService.getOrThrow('REFRESHTOKEN_COOKIE_EXPIRES_IN'),
